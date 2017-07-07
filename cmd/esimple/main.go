@@ -22,9 +22,7 @@ func main() {
 	ic := api.NewInventoryController()
 	r.HandleFunc("/", HomeHandler)
 	r.HandleFunc("/api/inventoryitems", ic.GetAllInventoryItems).Methods("GET")
-	// r.HandleFunc("/api/inventoryitems", addInventoryItem).Methods("POST")
-
-	// db = db.NewReadDb()
+	r.HandleFunc("/api/inventoryitems", ic.AddInventoryItem).Methods("POST")
 
 	srv := &http.Server{
 		Handler:      r,
@@ -37,15 +35,6 @@ func main() {
 
 	log.Println("End Application")
 }
-
-// func addInventoryItem(w http.ResponseWriter, r *http.Request) {
-// 	// params := mux.Vars(r)
-// 	item := InventoryItem{}
-// 	err := json.NewDecoder(r.Body).Decode(&item)
-// 	if err != nil {
-// 		w.WriteHeader(http.StatusBadRequest)
-// 	}
-// }
 
 func HomeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Home\n"))
