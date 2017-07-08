@@ -10,6 +10,7 @@ type InMemory struct {
 type Event struct {
 }
 
+// EventDescriptor represents the format being stored in the event store
 type EventDescriptor struct {
 	ID        guid
 	Version   int
@@ -23,20 +24,20 @@ type GuidVersionDescriptor interface {
 	EventDescriptor() EventDescriptor
 }
 
-func (s *InMemory) SaveEvent(id guid, event GuidVersionDescriptor, expectedVersion int) error {
+func (es *InMemory) SaveEvent(id guid, event GuidVersionDescriptor, expectedVersion int) error {
 	fmt.Printf("event store: %+v\n", event)
-	s.current[id] = event
+	es.current[id] = event
 	return nil
 }
 
-func (s *InMemory) GetEventForAggregate(id guid) GuidVersionDescriptor {
-	fmt.Printf("storage size: %d\n", len(s.current))
+func (es *InMemory) GetEventForAggregate(id guid) GuidVersionDescriptor {
+	fmt.Printf("storage size: %d\n", len(es.current))
 	fmt.Printf("requested id: %v\n", id)
-	for k, v := range s.current {
+	for k, v := range es.current {
 		fmt.Printf("%v -> %+v\n", k, v)
 	}
 
-	return s.current[id]
+	return es.current[id]
 }
 
 // NewEventStore creates an in memory event store
