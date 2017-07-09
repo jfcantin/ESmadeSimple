@@ -4,11 +4,13 @@ import "fmt"
 
 // InMemory represents an in memory event store
 type InMemory struct {
-	current map[guid]GuidVersionDescriptor
+	current map[guid][]GuidVersionDescriptor
 }
 
 type Event struct {
 }
+
+// TODO: Investigate if event descriptor is required, why not just event?
 
 // EventDescriptor represents the format being stored in the event store
 type EventDescriptor struct {
@@ -24,13 +26,13 @@ type GuidVersionDescriptor interface {
 	EventDescriptor() EventDescriptor
 }
 
-func (es *InMemory) SaveEvent(id guid, event GuidVersionDescriptor, expectedVersion int) error {
-	fmt.Printf("event store: %+v\n", event)
-	es.current[id] = event
+func (es *InMemory) SaveEvent(id guid, events []GuidVersionDescriptor, expectedVersion int) error {
+	fmt.Printf("event store: %+v\n", events)
+	es.current[id] = events
 	return nil
 }
 
-func (es *InMemory) GetEventForAggregate(id guid) GuidVersionDescriptor {
+func (es *InMemory) GetEventsForAggregate(id guid) []GuidVersionDescriptor {
 	fmt.Printf("storage size: %d\n", len(es.current))
 	fmt.Printf("requested id: %v\n", id)
 	for k, v := range es.current {
@@ -43,6 +45,6 @@ func (es *InMemory) GetEventForAggregate(id guid) GuidVersionDescriptor {
 // NewEventStore creates an in memory event store
 func NewEventStore() *InMemory {
 	var es InMemory
-	es.current = make(map[guid]GuidVersionDescriptor, 0)
+	es.current = make(map[guid][]GuidVersionDescriptor, 0)
 	return &es
 }
