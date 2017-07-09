@@ -2,8 +2,10 @@ package eventsource
 
 import uuid "github.com/satori/go.uuid"
 
-type guid string
+// GUID represent a GUID
+type GUID string
 
-func newGuid() guid {
-	return guid(uuid.NewV4().String())
+// NewGUID creates a new guid with uuid.NewV4
+func NewGUID() GUID {
+	return GUID(uuid.NewV4().String())
 }

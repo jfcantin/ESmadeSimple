@@ -1,80 +1,66 @@
-package eventsource
+package eventsource_test
 
 import (
 	"fmt"
 	"testing"
+	"time"
+
+	es "github.com/jfcantin/ESmadeSimple/pkg/platform/eventsource"
 )
 
-type testEvent struct {
-	id      guid
-	version int
-}
-
-func (t testEvent) Guid() guid {
-	return t.id
-}
-
-func (t testEvent) Version() int {
-	return t.version
-}
-
-func (t testEvent) EventDescriptor() EventDescriptor {
-	return EventDescriptor{t.id, t.version, Event{}}
-}
-
-func newTestEvent(id guid, version int) GuidVersionDescriptor {
-	return testEvent{id, version}
-}
-
 func TestCanSaveAndRetrieveAnEvent(t *testing.T) {
-	es := NewEventStore()
+	store := es.NewEventStore()
 
-	id := newGuid()
-	testEvent := newTestEvent(id, 1)
-	err := es.SaveEvent(id, []GuidVersionDescriptor{testEvent}, 1)
+	eventID := es.NewGUID()
+	testEvent := es.EventData{eventID, "testEvent", false, []byte("some data"), []byte("some metadata")}
+
+	err := store.AppendToStream("test-stream", es.ExpectedAny, []es.EventData{testEvent})
 	if err != nil {
 		t.Error(err)
 	}
 
-	events := es.GetEventsForAggregate(id)
+	events := store.ReadAllStreamEvents("test-stream")
+
 	if len(events) != 1 {
-		t.Error("Expected only 1 event stored")
+		t.Fatalf("Expected only 1 event stored but was: %v\n", len(events))
 	}
 	event := events[0]
 	fmt.Printf("event: %+v\n", event)
-	if len(events) != 1 || event.Guid() != testEvent.Guid() || event.Version() != testEvent.Version() {
-		t.Errorf("Expected id %v, but was %v", id, event.Guid())
-		t.Errorf("Expected version %v, but was %v", testEvent.Version(), event.Version())
-	}
-}
-func TestGetEventForAggregateWithMultipleEvent(t *testing.T) {
-	es := NewEventStore()
-	guid1 := newGuid()
-	err := es.SaveEvent(guid1, []GuidVersionDescriptor{
-		newTestEvent(guid1, 1), newTestEvent(guid1, 2)}, 2)
-	if err != nil {
-		t.Errorf("could not save Events for guid: %v\n - %v", guid1, err)
-	}
-
-	guid2 := newGuid()
-	err = es.SaveEvent(guid2, []GuidVersionDescriptor{
-		newTestEvent(guid2, 1), newTestEvent(guid2, 2), newTestEvent(guid2, 3)}, 3)
-
-	if err != nil {
-		t.Errorf("could not save Events for guid: %v\n - %v", guid1, err)
-	}
-
-	events := es.GetEventsForAggregate(guid1)
-	if len(events) != 2 {
-		t.Errorf("Wrong number of events expected %v, but was %v", 2, len(events))
-	}
-
-	events = es.GetEventsForAggregate(guid2)
-	if len(events) != 3 {
-		t.Errorf("Wrong number of events expected %v, but was %v", 3, len(events))
+	if event.StreamID != "test-stream" ||
+		event.EventID != eventID ||
+		event.EventNumber != 1 ||
+		event.EventType != "testEvent" ||
+		string(event.Data) != "some data" ||
+		string(event.MetaData) != "some metadata" ||
+		time.Now().Sub(event.CreatedAt) < 0 {
+		t.Errorf("RecordedEvent doesn't match EventData, expected: %+v\nBut was %+v", testEvent, event)
 	}
 }
 
-func Test(t *testing.T) {
+// func TestGetEventForAggregateWithMultipleEvent(t *testing.T) {
+// 	es := NewEventStore()
+// 	guid1 := newGuid()
+// 	err := es.SaveEvent(guid1, []GuidVersionDescriptor{
+// 		newTestEvent(guid1, 1), newTestEvent(guid1, 2)}, 2)
+// 	if err != nil {
+// 		t.Errorf("could not save Events for guid: %v\n - %v", guid1, err)
+// 	}
 
-}
+// 	guid2 := newGuid()
+// 	err = es.SaveEvent(guid2, []GuidVersionDescriptor{
+// 		newTestEvent(guid2, 1), newTestEvent(guid2, 2), newTestEvent(guid2, 3)}, 3)
+
+// 	if err != nil {
+// 		t.Errorf("could not save Events for guid: %v\n - %v", guid1, err)
+// 	}
+
+// 	events := es.GetEventsForAggregate(guid1)
+// 	if len(events) != 2 {
+// 		t.Errorf("Wrong number of events expected %v, but was %v", 2, len(events))
+// 	}
+
+// 	events = es.GetEventsForAggregate(guid2)
+// 	if len(events) != 3 {
+// 		t.Errorf("Wrong number of events expected %v, but was %v", 3, len(events))
+// 	}
+// }

@@ -1,50 +1,51 @@
 package eventsource
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // InMemory represents an in memory event store
 type InMemory struct {
-	current map[guid][]GuidVersionDescriptor
-}
-
-type Event struct {
-}
-
-// TODO: Investigate if event descriptor is required, why not just event?
-
-// EventDescriptor represents the format being stored in the event store
-type EventDescriptor struct {
-	ID        guid
-	Version   int
-	EventData Event
-}
-
-// GuidVersionDescriptor represents something that is guidable, versionable and descriptable
-type GuidVersionDescriptor interface {
-	Guid() guid
-	Version() int
-	EventDescriptor() EventDescriptor
-}
-
-func (es *InMemory) SaveEvent(id guid, events []GuidVersionDescriptor, expectedVersion int) error {
-	fmt.Printf("event store: %+v\n", events)
-	es.current[id] = events
-	return nil
-}
-
-func (es *InMemory) GetEventsForAggregate(id guid) []GuidVersionDescriptor {
-	fmt.Printf("storage size: %d\n", len(es.current))
-	fmt.Printf("requested id: %v\n", id)
-	for k, v := range es.current {
-		fmt.Printf("%v -> %+v\n", k, v)
-	}
-
-	return es.current[id]
+	store map[string][]RecordedEvent
 }
 
 // NewEventStore creates an in memory event store
 func NewEventStore() *InMemory {
 	var es InMemory
-	es.current = make(map[guid][]GuidVersionDescriptor, 0)
+	es.store = make(map[string][]RecordedEvent, 0)
 	return &es
+}
+
+func (es *InMemory) AppendToStream(streamName string, expectedVersion int, events []EventData) error {
+	fmt.Printf("AppendToStream: %+v\n", events)
+	currentVersion := len(es.store[streamName])
+	for _, e := range events {
+		currentVersion++
+		es.store[streamName] = append(es.store[streamName], convertEventToRecorded(streamName, currentVersion, e))
+	}
+	fmt.Println("internal length: ", len(es.store[streamName]))
+	return nil
+}
+
+func (es *InMemory) ReadAllStreamEvents(streamName string) []RecordedEvent {
+	fmt.Printf("storage size: %d\n", len(es.store))
+	fmt.Printf("requested id: %v\n", streamName)
+	for k, v := range es.store {
+		fmt.Printf("%v -> %+v\n", k, v)
+	}
+
+	return es.store[streamName]
+}
+
+func convertEventToRecorded(streamName string, version int, e EventData) RecordedEvent {
+	return RecordedEvent{
+		StreamID:    streamName,
+		EventID:     e.ID,
+		EventNumber: version,
+		EventType:   e.Type,
+		Data:        e.Data,
+		MetaData:    e.MetaData,
+		CreatedAt:   time.Now(),
+	}
 }
