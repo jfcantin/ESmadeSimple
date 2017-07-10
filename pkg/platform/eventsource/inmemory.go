@@ -1,6 +1,10 @@
 package eventsource
 
-import "time"
+import (
+	"fmt"
+	"log"
+	"time"
+)
 
 // InMemory represents an in memory event store
 type InMemory struct {
@@ -16,11 +20,22 @@ func NewEventStore() *InMemory {
 
 // AppendToStream append a list of EventData to a stream
 func (es *InMemory) AppendToStream(streamName string, expectedVersion int, events []EventData) error {
-	// fmt.Printf("AppendToStream: %+v\n", events)
-
 	// TODO: Should synchronise access to the map in case more than one go routine
 	// tries to read and write at the same time.
-	currentVersion := len(es.store[streamName])
+	stream := es.store[streamName]
+	currentVersion := len(stream)
+	log.Printf("expected %d, current %d\n", expectedVersion, currentVersion)
+	log.Printf("stream size: %v+\n", stream)
+	if expectedVersion != ExpectedAny && expectedVersion < currentVersion {
+		overlap := stream[currentVersion-1:]
+		log.Printf("overlap: %v+\n", stream)
+		// for each position they need to match incoming to be good
+		for i, evt := range overlap {
+			if evt.EventID != events[i].ID {
+				return fmt.Errorf("expected version mismatch. Expected: %d, but was: %d", expectedVersion, currentVersion)
+			}
+		}
+	}
 	for _, e := range events {
 		currentVersion++
 		es.store[streamName] = append(es.store[streamName], convertEventToRecorded(streamName, currentVersion, e))

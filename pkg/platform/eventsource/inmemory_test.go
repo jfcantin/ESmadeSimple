@@ -58,7 +58,7 @@ func TestAppendingToExistingStream(t *testing.T) {
 
 	anotherEvent := es.EventData{eventID, "testEvent", false, []byte("some data 4"), []byte("some metadata 4")}
 
-	err = store.AppendToStream("test-stream", es.ExpectedAny, []es.EventData{anotherEvent})
+	err = store.AppendToStream("test-stream", 3, []es.EventData{anotherEvent})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,10 +132,33 @@ func TestRetrieveingFromMultipleStream(t *testing.T) {
 	}
 }
 
-func TestAddingEventWithWrongExpectedVersion(t *testing.T) {
-	t.Skip()
+func TestAppendingANewEventWithSmallerExpextedVersionThanCurrentVersion(t *testing.T) {
+	store := es.NewEventStore()
+
+	eventID := es.NewGUID()
+	testEvents := []es.EventData{
+		es.EventData{eventID, "testEvent", false, []byte("some data"), []byte("some metadata")},
+		es.EventData{eventID, "testEvent", false, []byte("some data 2"), []byte("some metadata 2")},
+		es.EventData{eventID, "testEvent", false, []byte("some data 3"), []byte("some metadata 3")},
+	}
+
+	err := store.AppendToStream("test-stream", es.ExpectedAny, testEvents)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	anotherEvent := es.EventData{es.NewGUID(), "testEvent", false, []byte("some data 4"), []byte("some metadata 4")}
+
+	err = store.AppendToStream("test-stream", 2, []es.EventData{anotherEvent})
+	if err == nil {
+		t.Fatalf("Expected concurrency error but returned nil")
+	}
+}
+
+func TestAddingDuplicatedEvent(t *testing.T) {
+	t.Skip("Not implemented")
 }
 
 func TestInParallelShouldNotFailEventIfEventStoreIsGlobalVariable(t *testing.T) {
-	t.Skip()
+	t.Skip("Not implemented")
 }
