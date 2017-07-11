@@ -21,6 +21,9 @@ func NewEventStore() *InMemory {
 func (es *InMemory) AppendToStream(streamName string, expectedVersion int, events []EventData) error {
 	// TODO: Should synchronise access to the map in case more than one go routine
 	// tries to read and write at the same time.
+	if streamName == "" {
+		return fmt.Errorf("Missingn stream name")
+	}
 	stream := es.store[streamName]
 	currentVersion := len(stream)
 	// log.Printf("expected %d, current %d\n", expectedVersion, currentVersion)

@@ -137,12 +137,21 @@ func TestAppendSomeDuplicatedEventWithSmallerExpextedVersionThanCurrentVersion(t
 	t.Logf("events: %+v\n", events)
 	err = store.AppendToStream("test-stream", 1, events)
 	if err == nil {
-		t.Fatalf("Expected a version error, but got nil", err)
+		t.Fatalf("Expected a version error, but got nil: %v", err)
 	}
 
 	recoredEvents = store.ReadAllStreamEvents("test-stream")
 	if len(recoredEvents) != 3 {
 		t.Fatalf("Expected 3 events stored but was: %v\n", len(recoredEvents))
+	}
+}
+
+func TestAppendWithoutStreamNameShouldError(t *testing.T) {
+	store := es.NewEventStore()
+
+	err := store.AppendToStream("", es.ExpectedAny, []es.EventData{newTestEventWithGuid("")})
+	if err == nil {
+		t.Error("Expected missing stream name error")
 	}
 }
 
@@ -160,10 +169,6 @@ func configureStoreWithTestStream(numberOfEvent int) (*es.InMemory, error) {
 		return nil, fmt.Errorf("Could not append to stream")
 	}
 	return store, nil //*InMemory
-}
-
-func TestAddingDuplicatedEvent(t *testing.T) {
-	t.Skip("Not implemented")
 }
 
 func TestInParallelShouldNotFailEventIfEventStoreIsGlobalVariable(t *testing.T) {
