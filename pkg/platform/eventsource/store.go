@@ -5,20 +5,26 @@ import (
 	"time"
 )
 
+// ReadAppender represents an event store
+type ReadAppender interface {
+	Append(streamName string, expectedVersion int, events []EventData) error
+	ReadAll(streamName string) []RecordedEvent
+}
+
 // InMemory represents an in memory event store
 type InMemory struct {
 	store map[string][]RecordedEvent
 }
 
-// NewEventStore creates an in memory event store
-func NewEventStore() *InMemory {
+// NewInMemoryStore creates an in memory event store
+func NewInMemoryStore() ReadAppender {
 	var es InMemory
 	es.store = make(map[string][]RecordedEvent, 0)
 	return &es
 }
 
-// AppendToStream append a list of EventData to a stream
-func (es *InMemory) AppendToStream(streamName string, expectedVersion int, events []EventData) error {
+// Append a list of EventData to a stream
+func (es *InMemory) Append(streamName string, expectedVersion int, events []EventData) error {
 	// TODO: Should synchronise access to the map in case more than one go routine
 	// tries to read and write at the same time.
 	if streamName == "" {
@@ -62,12 +68,8 @@ func handleExpectedLowerThanCurrentVersion(stream []RecordedEvent, currentVersio
 	return nil
 }
 
-// ReadAllStreamEvents read all events from start to finish for a given stream.
-func (es *InMemory) ReadAllStreamEvents(streamName string) []RecordedEvent {
-	// for k, v := range es.store {
-	// 	fmt.Printf("%v -> %+v\n", k, v)
-	// }
-
+// ReadAll read all events from start to finish for a given stream.
+func (es *InMemory) ReadAll(streamName string) []RecordedEvent {
 	return es.store[streamName]
 }
 
