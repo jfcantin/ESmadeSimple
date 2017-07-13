@@ -20,7 +20,6 @@ func (pg *pgTest) ResetDB() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// log.Printf("truncate results: last:%v, rows:%v\n", results.LastInsertId, results.RowsAffected)
 }
 
 // NewPostgresStore creates a postgres event store

@@ -6,6 +6,7 @@ import (
 )
 
 const (
+	// ExpectedAny represents the event version of any
 	ExpectedAny int = -1
 )
 
