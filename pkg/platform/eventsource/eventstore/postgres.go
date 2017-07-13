@@ -4,9 +4,22 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"time"
 
 	_ "github.com/lib/pq" // required postgres db
+)
+
+const (
+	insertStreamFormatQuery string = `INSERT INTO streams(StreamID, EventID, EventNumber, EventType, MetaData, Data) 
+			VALUES ($1, $2, $3, $4, $5, $6);`
+
+	selectStreamFormatQuery string = `SELECT streamid, eventid, eventnumber, eventtype, metadata, data 
+								from streams 
+								where streamid = $1 and eventnumber > $2 
+								order by eventnumber;`
+	versionStreamFormatQuery string = `SELECT count(0) as version 
+	  							from streams 
+								  where streamid = $1 
+								  group by streamid;`
 )
 
 // Postgres represents the postgres client
@@ -31,40 +44,25 @@ func (es *Postgres) Append(streamName string, expectedVersion int, events []Even
 		return fmt.Errorf("Missingn stream name")
 	}
 	currentVersion := es.getCurrentVersionForStream(streamName)
-	log.Printf("expected %d, current %d\n", expectedVersion, currentVersion)
 	if expectedVersion != ExpectedAny && expectedVersion < currentVersion {
-		// return handleExpectedLowerThanCurrentVersion(stream, currentVersion, expectedVersion, events)
-
 		versionDiff := currentVersion - expectedVersion
-		log.Printf("Version diff: %d\n", versionDiff)
 		if len(events) != versionDiff {
 			return fmt.Errorf("version mismatch. Expected: %d, but was: %d and the number of events differ", expectedVersion, currentVersion)
 		}
 		overlap := es.readStartingAt(streamName, expectedVersion)
-		// log.Printf("overlap: %+v\n", overlap)
-		// log.Printf("newEvents: %+v\n", events)
+
 		// for each position they need to match incoming to be good
-		log.Printf("events: %+v\nOverlap: %+v", events, overlap)
 		for i, evt := range overlap {
 			if evt.EventID != events[i].ID {
-				log.Printf("event: %+v\nOverlap: %+v", events[i], evt)
-				return fmt.Errorf("version mismatch. Expected: %d, but was: %d and not all events were already commited.", expectedVersion, currentVersion)
+				return fmt.Errorf("version mismatch. Expected: %d, but was: %d and not all events were already commited", expectedVersion, currentVersion)
 			}
 		}
 		return nil
 	}
 
-	// VALUES (:streamID, :eventID, :eventNumber, :eventType, :metaData, :data)
-	query := fmt.Sprintf(`INSERT INTO %s(StreamID, EventID, EventNumber, EventType, MetaData, Data) 
-			VALUES ($1, $2, $3, $4, $5, $6)
-		`, "streams")
-	stmt, err := es.DB.Prepare(query)
-	if err != nil {
-		log.Fatalf("failed preparing insert statement: %s - %v", query, err)
-	}
 	for _, e := range events {
 		currentVersion++
-		_, err := stmt.Exec(streamName, e.ID, currentVersion, e.Type, e.MetaData, e.Data)
+		_, err := es.DB.Exec(insertStreamFormatQuery, streamName, e.ID, currentVersion, e.Type, e.MetaData, e.Data)
 		if err != nil {
 			log.Fatalf("failed to insert event: %v - %v", e, err)
 		}
@@ -75,8 +73,7 @@ func (es *Postgres) Append(streamName string, expectedVersion int, events []Even
 
 func (es *Postgres) getCurrentVersionForStream(streamName string) int {
 	var current int
-	query := fmt.Sprintf("SELECT count(0) as version from streams where streamid = '%s' group by streamid", streamName)
-	err := es.DB.QueryRow(query).Scan(&current)
+	err := es.DB.QueryRow(versionStreamFormatQuery, streamName).Scan(&current)
 	switch {
 	case err == sql.ErrNoRows:
 		log.Printf("No stream found with id: %s", streamName)
@@ -90,53 +87,22 @@ func (es *Postgres) getCurrentVersionForStream(streamName string) int {
 
 // ReadAll read all events from start to finish for a given stream.
 func (es *Postgres) ReadAll(streamName string) []RecordedEvent {
-	query := fmt.Sprint("SELECT * from streams where streamid = $1")
-	stmt, err := es.DB.Prepare(query)
-	if err != nil {
-		log.Fatalf("preparing statement: %s - %v", query, err)
-	}
-	rows, err := stmt.Query(streamName)
-	if err != nil {
-		log.Fatalf("Could not recover result from query %s - %v", query, err)
-	}
-	defer rows.Close()
-	var events []RecordedEvent
-	for rows.Next() {
-		var e RecordedEvent
-		var id int
-		var eventID []uint8
-		var createdAt time.Time
-		err := rows.Scan(&id, &e.StreamID, &eventID, &e.EventNumber,
-			&e.EventType, &e.MetaData, &e.Data, &createdAt)
-		if err != nil {
-			log.Fatalf("Could not read rows: %v", err)
-		}
-		e.EventID = GUID(eventID)
-		events = append(events, e)
-	}
-	return events
+	return es.readStartingAt(streamName, 0)
 }
 
 // ReadAll read all events from start to finish for a given stream.
 func (es *Postgres) readStartingAt(streamName string, start int) []RecordedEvent {
-	query := fmt.Sprint("SELECT * from streams where streamid = $1 and eventnumber > $2")
-	stmt, err := es.DB.Prepare(query)
+	rows, err := es.DB.Query(selectStreamFormatQuery, streamName, start)
 	if err != nil {
-		log.Fatalf("preparing statement: %s - %v", query, err)
-	}
-	rows, err := stmt.Query(streamName, start)
-	if err != nil {
-		log.Fatalf("Could not recover result from query %s - %v", query, err)
+		log.Fatalf("Could not recover result from query %s - %v", selectStreamFormatQuery, err)
 	}
 	defer rows.Close()
 	var events []RecordedEvent
 	for rows.Next() {
 		var e RecordedEvent
-		var id int
 		var eventID []uint8
-		var createdAt time.Time
-		err := rows.Scan(&id, &e.StreamID, &eventID, &e.EventNumber,
-			&e.EventType, &e.MetaData, &e.Data, &createdAt)
+		err := rows.Scan(&e.StreamID, &eventID, &e.EventNumber,
+			&e.EventType, &e.MetaData, &e.Data)
 		if err != nil {
 			log.Fatalf("Could not read rows: %v", err)
 		}

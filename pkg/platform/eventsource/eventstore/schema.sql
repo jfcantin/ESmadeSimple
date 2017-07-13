@@ -17,6 +17,14 @@ GRANT ALL ON SEQUENCE public.streams_id_seq TO esmadesimple;
 
 GRANT ALL ON TABLE public.streams TO esmadesimple;
 
+CREATE or REPLACE FUNCTION insert_streams(streamid text, eventid uuid, 
+eventnumber int, eventtype text, metadata bytea, data bytea) RETURNS void AS $$
+  BEGIN
+	INSERT INTO streams(StreamID, EventID, EventNumber, EventType, MetaData, Data) 
+			VALUES (streamid, eventid, eventnumber, eventtype, metadata, data)
+  END;
+
+$$ LANGUAGE plpgsql;
 
 CREATE TABLE "events" (
   "id" serial primary key not null,
