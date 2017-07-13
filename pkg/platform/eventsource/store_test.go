@@ -2,17 +2,49 @@ package eventsource_test
 
 import (
 	"fmt"
+	"log"
 	"testing"
+
+	_ "github.com/lib/pq"
 
 	es "github.com/jfcantin/ESmadeSimple/pkg/platform/eventsource"
 )
 
+type pgTest struct {
+	*es.Postgres
+}
+
+func (pg *pgTest) ResetDB() {
+	// stmt, err := pg.db.Prepare("truncate table streams")
+	_, err := pg.DB.Exec("truncate table streams")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// log.Printf("truncate results: last:%v, rows:%v\n", results.LastInsertId, results.RowsAffected)
+}
+
+// NewPostgresStore creates a postgres event store
+func newPostgresStore() es.ReadAppender {
+	p, err := es.NewPostgresStore("esmadesimple", "esmadesimple")
+
+	pg := pgTest{p.(*es.Postgres)}
+	if err != nil {
+		log.Fatalf("Could not open database: %v", err)
+		return nil //, fmt.Errorf("Could not open database: %v", err)
+	}
+	log.Print("reset db")
+	pg.ResetDB()
+
+	return &pg
+}
 func TestInMemoryEventStore(t *testing.T) {
+	t.Parallel()
 	stores := []struct {
 		name  string
 		store func() es.ReadAppender
 	}{
 		{"In Memory", es.NewInMemoryStore},
+		{"Postgres", newPostgresStore},
 	}
 	for _, s := range stores {
 		t.Run("Test can append and retrieve events for store: "+s.name, func(t *testing.T) { testCanAppendAndRetrieveAnEvent(t, s.store) })
@@ -31,12 +63,15 @@ func testCanAppendAndRetrieveAnEvent(t *testing.T, storefunc func() es.ReadAppen
 	store := storefunc()
 	eventID := es.NewGUID()
 
+	log.Println("Appending")
 	err := store.Append("test-stream", es.ExpectedAny, []es.EventData{newTestEventWithGuid(eventID)})
 	if err != nil {
 		t.Error(err)
 	}
 
+	log.Println("Reading")
 	events := store.ReadAll("test-stream")
+	log.Println("Verifying")
 
 	if len(events) != 1 {
 		t.Fatalf("Expected only 1 event stored but was: %v\n", len(events))

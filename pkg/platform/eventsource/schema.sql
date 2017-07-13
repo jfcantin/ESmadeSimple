@@ -2,16 +2,21 @@ DROP TABLE IF EXISTS "stream";
 DROP TABLE IF EXISTS "events";
 DROP TABLE IF EXISTS "aggregates";
 
-CREATE TABLE "streams" (
-  "id" serial primary key not null,
-  "StreamID" text NOT NULL,
-  "EventID" uuid NOT NULL,
-  "EventNumber" integer NOT NULL,
-  "EventType" text NOT NULL,
-  "MetaData" bytea NOT NULL,
-  "Data" bytea NOT NULL,
-  "CreatedAt" timestamp with time zone NOT NULL DEFAULT statement_timestamp() 
+CREATE TABLE streams (
+  id serial primary key not null,
+  StreamID text NOT NULL,
+  EventID uuid NOT NULL,
+  EventNumber integer NOT NULL,
+  EventType text NOT NULL,
+  MetaData bytea NOT NULL,
+  Data bytea NOT NULL,
+  CreatedAt timestamp with time zone NOT NULL DEFAULT statement_timestamp() 
 );
+
+GRANT ALL ON SEQUENCE public.streams_id_seq TO esmadesimple;
+
+GRANT ALL ON TABLE public.streams TO esmadesimple;
+
 
 CREATE TABLE "events" (
   "id" serial primary key not null,
