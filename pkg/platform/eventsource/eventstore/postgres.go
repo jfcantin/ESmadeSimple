@@ -60,13 +60,19 @@ func (es *Postgres) Append(streamName string, expectedVersion int, events []Even
 		return nil
 	}
 
+	tx, err := es.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("could not create transaction for insert: %v", err)
+	}
 	for _, e := range events {
 		currentVersion++
-		_, err := es.DB.Exec(insertStreamFormatQuery, streamName, e.ID, currentVersion, e.Type, e.MetaData, e.Data)
+		_, err := tx.Exec(insertStreamFormatQuery, streamName, e.ID, currentVersion, e.Type, e.MetaData, e.Data)
 		if err != nil {
-			log.Fatalf("failed to insert event: %v - %v", e, err)
+			tx.Rollback()
+			return fmt.Errorf("failed to insert event: %v - %v", e, err)
 		}
 	}
+	tx.Commit()
 	log.Printf("Current version is now: %d", es.getCurrentVersionForStream(streamName))
 	return nil
 }
