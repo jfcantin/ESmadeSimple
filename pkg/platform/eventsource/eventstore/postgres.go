@@ -1,4 +1,4 @@
-package eventsource
+package eventstore
 
 import (
 	"database/sql"

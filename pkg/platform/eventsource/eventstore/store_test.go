@@ -1,4 +1,4 @@
-package eventsource_test
+package eventstore_test
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/lib/pq"
 
-	es "github.com/jfcantin/ESmadeSimple/pkg/platform/eventsource"
+	es "github.com/jfcantin/ESmadeSimple/pkg/platform/eventsource/eventstore"
 )
 
 type pgTest struct {

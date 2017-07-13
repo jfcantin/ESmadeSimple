@@ -1,4 +1,4 @@
-package eventsource
+package eventstore
 
 import uuid "github.com/satori/go.uuid"
 
