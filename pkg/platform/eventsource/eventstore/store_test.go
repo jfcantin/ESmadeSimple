@@ -61,36 +61,38 @@ func TestInMemoryEventStore(t *testing.T) {
 func testCanAppendAndRetrieveAnEvent(t *testing.T, storefunc func() es.ReadAppender) {
 	store := storefunc()
 	eventID := es.NewGUID()
+	streamName := "test-append-retrieve-stream"
 
 	log.Println("Appending")
-	err := store.Append("test-stream", es.ExpectedAny, []es.EventData{newTestEventWithGuid(eventID)})
+	err := store.Append(streamName, es.ExpectedAny, []es.EventData{newTestEventWithGuid(eventID)})
 	if err != nil {
 		t.Error(err)
 	}
 
 	log.Println("Reading")
-	events := store.ReadAll("test-stream")
+	events := store.ReadAll(streamName)
 	log.Println("Verifying")
 
 	if len(events) != 1 {
 		t.Fatalf("Expected only 1 event stored but was: %v\n", len(events))
 	}
 	event := events[0]
-	checkEvent(t, newTestEventWithGuid(eventID), event)
+	checkEvent(t, streamName, newTestEventWithGuid(eventID), event)
 }
 
 func testAppendToExistingStream(t *testing.T, storefunc func() es.ReadAppender) {
 	store := storefunc()
-	err := configureStoreWithTestStream(store, 3)
+	streamName := "test-append-existing-stream"
+	err := configureStoreWithTestStream(streamName, store, 3)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = store.Append("test-stream", 3, []es.EventData{newTestEventWithGuid(es.NewGUID())})
+	err = store.Append(streamName, 3, []es.EventData{newTestEventWithGuid(es.NewGUID())})
 	if err != nil {
 		t.Fatal(err)
 	}
-	events := store.ReadAll("test-stream")
+	events := store.ReadAll(streamName)
 
 	if len(events) != 4 {
 		t.Fatalf("Expected 4 events stored but was: %v\n", len(events))
@@ -106,18 +108,20 @@ func testRetrieveingFromMultipleStream(t *testing.T, storefunc func() es.ReadApp
 	stream2 := []es.EventData{
 		newTestEventWithGuid(eventID),
 	}
+	streamName1 := "test-retrieve-multiple-stream-1"
+	streamName2 := "test-retrieve-multiple-stream-2"
 
-	err := store.Append("test-stream", es.ExpectedAny, stream1)
+	err := store.Append(streamName1, es.ExpectedAny, stream1)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = store.Append("test-stream2", es.ExpectedAny, stream2)
+	err = store.Append(streamName2, es.ExpectedAny, stream2)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	eventStream1 := store.ReadAll("test-stream")
-	eventStream2 := store.ReadAll("test-stream2")
+	eventStream1 := store.ReadAll(streamName1)
+	eventStream2 := store.ReadAll(streamName2)
 
 	if len(eventStream1) != 1 {
 		t.Fatalf("Expected 1 events stored but was: %v\n", len(eventStream1))
@@ -129,13 +133,14 @@ func testRetrieveingFromMultipleStream(t *testing.T, storefunc func() es.ReadApp
 
 func testAppendingANewEventWithSmallerExpextedVersionThanCurrentVersion(t *testing.T, storefunc func() es.ReadAppender) {
 	store := storefunc()
-	err := configureStoreWithTestStream(store, 3)
+	streamName := "test-append-version-1"
+	err := configureStoreWithTestStream(streamName, store, 3)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = store.Append("test-stream", 2, []es.EventData{newTestEventWithGuid("")})
+	err = store.Append(streamName, 2, []es.EventData{newTestEventWithGuid("")})
 	if err == nil {
 		t.Fatalf("Expected concurrency error but returned nil")
 	}
@@ -143,12 +148,13 @@ func testAppendingANewEventWithSmallerExpextedVersionThanCurrentVersion(t *testi
 
 func testAppendADuplicatedEventWithSmallerExpextedVersionThanCurrentVersion(t *testing.T, storefunc func() es.ReadAppender) {
 	store := storefunc()
-	err := configureStoreWithTestStream(store, 3)
+	streamName := "test-append-version-2"
+	err := configureStoreWithTestStream(streamName, store, 3)
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	recoredEvents := store.ReadAll("test-stream")
+	recoredEvents := store.ReadAll(streamName)
 	events := []es.EventData{es.EventData{
 		ID:       recoredEvents[1].EventID,
 		Type:     recoredEvents[1].EventType,
@@ -162,12 +168,12 @@ func testAppendADuplicatedEventWithSmallerExpextedVersionThanCurrentVersion(t *t
 			Data:     recoredEvents[2].Data,
 			MetaData: recoredEvents[2].MetaData}}
 
-	err = store.Append("test-stream", 1, events)
+	err = store.Append(streamName, 1, events)
 	if err != nil {
 		t.Fatalf("Expected stream to be written without error: %v", err)
 	}
 
-	recoredEvents = store.ReadAll("test-stream")
+	recoredEvents = store.ReadAll(streamName)
 	if len(recoredEvents) != 3 {
 		t.Fatalf("Expected 3 events stored but was: %v\n", len(recoredEvents))
 	}
@@ -175,12 +181,13 @@ func testAppendADuplicatedEventWithSmallerExpextedVersionThanCurrentVersion(t *t
 
 func testAppendSomeDuplicatedEventWithSmallerExpextedVersionThanCurrentVersion(t *testing.T, storefunc func() es.ReadAppender) {
 	store := storefunc()
-	err := configureStoreWithTestStream(store, 3)
+	streamName := "test-append-version-3"
+	err := configureStoreWithTestStream(streamName, store, 3)
 
 	if err != nil {
 		t.Fatal(err)
 	}
-	recoredEvents := store.ReadAll("test-stream")
+	recoredEvents := store.ReadAll(streamName)
 	events := []es.EventData{es.EventData{
 		ID:       recoredEvents[2].EventID,
 		Type:     recoredEvents[2].EventType,
@@ -190,12 +197,12 @@ func testAppendSomeDuplicatedEventWithSmallerExpextedVersionThanCurrentVersion(t
 		newTestEventWithGuid(""),
 		newTestEventWithGuid("")}
 
-	err = store.Append("test-stream", 1, events)
+	err = store.Append(streamName, 1, events)
 	if err == nil {
 		t.Fatalf("Expected a version error, but got nil: %v", err)
 	}
 
-	recoredEvents = store.ReadAll("test-stream")
+	recoredEvents = store.ReadAll(streamName)
 	if len(recoredEvents) != 3 {
 		t.Fatalf("Expected 3 events stored but was: %v\n", len(recoredEvents))
 	}
@@ -209,13 +216,13 @@ func testAppendWithoutStreamNameShouldError(t *testing.T, storefunc func() es.Re
 	}
 }
 
-func configureStoreWithTestStream(store es.ReadAppender, numberOfEvent int) error {
+func configureStoreWithTestStream(streamName string, store es.ReadAppender, numberOfEvent int) error {
 	var testEvents = make([]es.EventData, 0)
 	for i := 0; i < numberOfEvent; i++ {
 		testEvents = append(testEvents, newTestEventWithGuid(es.NewGUID()))
 	}
 
-	err := store.Append("test-stream", es.ExpectedAny, testEvents)
+	err := store.Append(streamName, es.ExpectedAny, testEvents)
 	if err != nil {
 		return fmt.Errorf("Could not append to stream")
 	}
@@ -239,11 +246,17 @@ func newTestEventWithData(eventID es.GUID, eventData, metaData string) es.EventD
 	if metaData == "" {
 		metaData = "some metadata"
 	}
-	return es.EventData{eventID, "testEvent", false, []byte(eventData), []byte(metaData)}
+	return es.EventData{
+		ID:       eventID,
+		Type:     "testEvent",
+		IsJSON:   false,
+		Data:     []byte(eventData),
+		MetaData: []byte(metaData),
+	}
 }
 
-func checkEvent(t *testing.T, expected es.EventData, got es.RecordedEvent) {
-	if got.StreamID != "test-stream" {
+func checkEvent(t *testing.T, streamName string, expected es.EventData, got es.RecordedEvent) {
+	if got.StreamID != streamName {
 		t.Errorf("Expected %v, but was %v", "test-stream", got.StreamID)
 	}
 	if got.EventID != expected.ID {

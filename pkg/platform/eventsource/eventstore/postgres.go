@@ -68,7 +68,9 @@ func (es *Postgres) Append(streamName string, expectedVersion int, events []Even
 		currentVersion++
 		_, err := tx.Exec(insertStreamFormatQuery, streamName, e.ID, currentVersion, e.Type, e.MetaData, e.Data)
 		if err != nil {
-			tx.Rollback()
+			if err := tx.Rollback(); err != nil {
+				return fmt.Errorf("failed to rollback transaction: %v - %v", e, err)
+			}
 			return fmt.Errorf("failed to insert event: %v - %v", e, err)
 		}
 	}
